@@ -1,17 +1,17 @@
 import threading
 from socket import *
 
-host = "127.0.0.1"#host's IP adress 
-serverPort = 13000  #port number
+host = "127.0.0.1" # host's IP adress 
+serverPort = 13000  # port number
 
 serverSocket = socket(AF_INET,SOCK_STREAM) #Indicate the server-client connection will be TCP
-serverSocket.bind((host,serverPort)) #bind server port to localhost IP adress
-serverSocket.listen() #Server starts listening for new connections
+serverSocket.bind((host,serverPort)) # bind server port to localhost IP adress
+serverSocket.listen() # Server starts listening for new connections
 
-clientDictionary = {} #dictionary of key as the clients and the values as their usernames
-clientSockets = [] #list of all the connection sockets of all the clients connected #CLEAR
-clientPasswords = {} #CODE*****
-clientStatusDictionary = {} #dictionary of client's usernames and whether they're online or offline
+clientDictionary = {} # dictionary of key as the clients and the values as their usernames
+clientSockets = [] # list of all the connection sockets of all the clients connected #CLEAR
+clientPasswords = {} # CODE*****
+clientStatusDictionary = {} # dictionary of client's usernames and whether they're online or offline
 
 def broadcastMessage(msg): #function to broadcast a message to all clients on the server
      for socket in clientSockets:
