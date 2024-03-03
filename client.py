@@ -1,90 +1,125 @@
-import threading
 from socket import *
+import threading
+import ast
 
-clientSocket = socket(AF_INET, SOCK_STREAM)
-clientSocket.connect(('127.0.0.1',13002)) #connect client to server
+# Data required for formatting based on protocols
+FORMAT = 'utf-8'
+USERREQ = '<2><USERREQ>'
+ESTABCONN = '<1><ESTCONN>'
+CLOSECLIENT = '<1><EXTCLNT>' 
 
-otherClientIP = '127.0.0.1'
-otherClientPort = 4096 #port we are sending data to
-clientPort = 4095
+clientSocket = socket(AF_INET, SOCK_STREAM) #TCP connection
+clientSocket.connect(('127.0.0.1',13000)) #connect client to server
 
-clientSocketp2p = socket(AF_INET, SOCK_DGRAM) #create a udp connection for the clients to communicate over
-clientSocketp2p.bind(('127.0.0.1',clientPort)) #bind the client to its source port
+UDPconnected = False
 
+userName =''
 
-Connected = True #if the client is connected to the server
-
+print("Welcome! Press enter to continue. ")
 
 def recieveMsgs():
-    global Connected
+    global userName
     while True:
         try:
-            message = clientSocket.recv(1024).decode('utf-8') #while the client is recieving messages from the server
+            msg = clientSocket.recv(1024).decode(FORMAT) #while the client is recieving messages from the server
 
-            if message == "UserName request": #if the server is requesting the client's name:
-                userName = input('Enter a username:')
-                clientSocket.send(userName.encode('utf-8')) #Send the username
-
-            elif message == "Establishing connection...": #server sends the client the other clients information so they can connect
-                 #HOW TO GET USERNAME??
-                 print("Test")
-                 p2pChat(otherClientIP, otherClientPort)
-            else: 
-                print(message) #if its not any of the specifc questions from the server then print the message
-
-        except: #if the server stops running and the client stops recieving messages
-                if Connected == True: #if the client socket connection hasn't been closed already **doesn't work, boradcasts to every client
-                    print("An error in the server has occured. You have been disconnected")
-                    clientSocket.close()
-                    Connected = False
-                    break
-            
-
-def sendMsgs():
-    global Connected
-    while True:
-            message = input("")
-            if message == '4': #if the client want to disconnect, print out that they have left the server and cloe the connection
-                 clientSocket.send(message.encode('utf-8'))
+            if msg[0:12] == USERREQ:  # if the server is requesting the client's name:
+                userName = input('Enter a username:\n')
+                clientSocket.send(userName.encode(FORMAT)) #Send the username
+            elif msg[0:12]== CLOSECLIENT:    #  if the client has chosen to diconnect from the server
+                 print("You have left the server. ")
                  clientSocket.close()
-                 print("You have left the server")
-                 Connected = False # client is no longer on the server
-            
+                 break  # end the loop
+            elif ESTABCONN in msg[0:12]:   # server sends the client the other clients information so they can connect
+                 msg = msg[12:]
+                 
+                 msg = msg.replace("Establishing connection...","")
+                 theAnd = msg.index("&")
+                 ThisPeer = msg[:theAnd]    # convert string address back to tuple
+                 OtherPeer = msg[theAnd+1:]
+
+                 ThisPeer = ast.literal_eval((msg[:theAnd]))    # convert string address back to tuple
+                 OtherPeer = ast.literal_eval((msg[theAnd+1:]))
+
+                 peer_to_peer(ThisPeer, OtherPeer)
+
+            else: 
+                print(msg)  # if its not any of the specific questions from the server then print the message
+
+        except: #if the server stops running and the client stops recieving messages      
+            print("An error in the server has occured, you have been diconnected. ")
+            clientSocket.close()
+            break
+                               
+def sendMsgs():
+    global UDPconnected
+    while True: 
+            if UDPconnected == True: #while a peer-to-peer chatroom is running do not send messages to the server
+                 continue
             else:
-                clientSocket.send(message.encode('utf-8')) #Send encoded message to another client
+                msg = input("")
+                clientSocket.send(msg.encode(FORMAT)) #Send encoded message to another client
 
-def p2pChat(otherClientIP, otherClientPort):
-     print("Test")
-     clientSocketp2p.sendto(f"{clientSocket} wants to chat!".encode("utf-8"), (otherClientIP, otherClientPort))
-     print('ready to exchange messages\n')
+##### UDP P2P: #####
 
-     p2pRecieveMsgs_Thread = threading.Thread(target=p2pRecieveMsgs)
-     p2pRecieveMsgs_Thread.start()
+def peer_to_peer(ThisPeer, OtherPeer):
+    global UDPconnected
+    UDPconnected = True
 
-     p2pSendMsgs_Thread = threading.Thread(target=p2pSendMsgs)
-     p2pSendMsgs_Thread.start()
+    peerSocket = socket(AF_INET, SOCK_DGRAM) #create UDP connection
+    peerSocket.bind(ThisPeer) #bind the socket to the raddr of this peer
+    
+    Thread_Recievep2p = threading.Thread(target= Recievep2p, args=(peerSocket,))
+    Thread_Recievep2p.start()
 
-def p2pRecieveMsgs(): #recieve messages from the other client
-    #clientSocketp2p = socket(AF_INET,SOCK_DGRAM)
-    #clientSocketp2p.bind(('172.27.144.1', clientPort)) #bind clientSocketp2p to another source port
+    Thread_Sendp2p = threading.Thread(target= Sendp2p, args= (OtherPeer,peerSocket))
+    Thread_Sendp2p.start()
+
+    print("(You can type 'exit' to leave the chatroom). ")
+    print("Connection established, press enter to start chat: \n")
+
+def Recievep2p(peerSocket):
+    global UDPconnected
+    
     while True:
-        message, address = clientSocketp2p.recvfrom(1024)
-        print(address+ ": "+message.decode('utf-8')) #otherClientIP
-     
-def p2pSendMsgs():
-    #clientSocketp2p = socket(AF_INET, SOCK_DGRAM)
-    #clientSocketp2p.bind(('172.27.144.1', otherClientPort)) #bind clientSocketp2p to the destination port
+        try:
+            receiveMsg, oPeer = peerSocket.recvfrom(1024)
+            print(receiveMsg.decode(FORMAT))
+
+            if ("has left the chatroom.") in receiveMsg.decode(FORMAT):
+                clientSocket.send("exit".encode(FORMAT))  # Send the exit message
+                UDPconnected = False
+                break
+        except:
+             UDPconnected = False
+             break
+
+    peerSocket.close()# Close the peer-to-peer socket
+    return "" # Exit the function
+        
+def Sendp2p(OtherPeer,peerSocket):
+    global userName
+    global UDPconnected
 
     while True:
-        message = input('-> ')
-        if message == "->exit": #if the client leave the chatroom
-            clientSocketp2p.close() 
-            clientSocketp2p.sendto("Chatroom has closed.".encode('utf-8'), (otherClientIP, otherClientPort))
-            clientSocket.send("Chat done.".encode('utf-8'))
-        else:
-            clientSocketp2p.sendto(message.encode('utf-8'), (otherClientIP, otherClientPort))
+        try:
+            msg = userName + ": " + input(">> ")
+            peerSocket.sendto(msg.encode(FORMAT), OtherPeer)
 
-####THREADING####
+            if "exit" in msg.lower():
+                msg = userName + " has left the chatroom."
+                peerSocket.sendto(msg.encode(FORMAT), OtherPeer) #tell the other peer the current peer has disconnected from the chatroom
+                clientSocket.send("exit".encode(FORMAT))  # Send the exit message
+                UDPconnected = False
+                break
+        except:
+             UDPconnected = False
+             break
+             
+    peerSocket.close()# Close the peer-to-peer socket
+    return ""  # Exit the function
+
+####TCP CLIENT-SERVER THREADING####
 recieveMsgs_Thread = threading.Thread(target= recieveMsgs)
 recieveMsgs_Thread.start()
 

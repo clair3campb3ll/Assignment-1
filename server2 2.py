@@ -3,6 +3,11 @@ from socket import *
 
 MSGFORMAT = 'utf-8'
 ERRMSG = 'An unexpected error has occurred. '
+ERRMSG1 = 'Unable to broadcast to clients. '
+ERRMSG2 = 'Unable to connect the server. '
+ERRMSG3 = 'Unable to connect to the client. '
+ERRMSG4 = 'Unable to edit your status on the network. '
+
 
 host = "127.0.0.1"#host's IP adress 
 serverPort = 13000  #port number
@@ -21,7 +26,7 @@ def broadcastMessage(msg): #function to broadcast a message to all clients on th
         try:
             socket.send(msg)
         except:
-            print(ERRMSG)
+            print(ERRMSG1)
 
 
 def acceptClients(): #function to accept incoming client connections
@@ -32,7 +37,7 @@ def acceptClients(): #function to accept incoming client connections
             thread = threading.Thread(target= handleClient, args=(connectionSocket,address)) #Each time a new client connection is accepted, a new thread to use the handleCLient function is started to handle clients simultaneously 
             thread.start()
         except:
-            print(ERRMSG)
+            print(ERRMSG2)
         
 
 
@@ -45,7 +50,7 @@ def p2pChat(connectionSocket, userName, address):
             try:
                 connectionSocket.send(client.encode(MSGFORMAT)) #show the name that is at the same index number as the visbleclient
             except:
-                print(ERRMSG)
+                print(ERRMSG3)
 
     otherClient = connectionSocket.recv(1024).decode(MSGFORMAT) #username of the other client the client want to talk to
             
@@ -60,7 +65,7 @@ def p2pChat(connectionSocket, userName, address):
 
             otherClient = connectionSocket.recv(1024).decode(MSGFORMAT) #username of the other client the client want to talk to
         except:
-            print(ERRMSG)
+            print(ERRMSG3)
     for otherclientAdr in clientDictionary.keys(): #look for the other client's info in clientDictionary
         if otherClient == clientDictionary.get(otherclientAdr): #if the otherClient's username is in the clientDictionery
             print(f"{userName} and {otherClient} currently chatting. ")
@@ -69,6 +74,7 @@ def p2pChat(connectionSocket, userName, address):
     
     while connectionSocket.recv(1024).decode(MSGFORMAT) != "exit": #stay here while the clients are in the chat room and someone types 'exit'
         continue
+    print((f"{userName} and {otherClient} have stopped chatting. "))
 
                         
 
@@ -99,7 +105,7 @@ def changeStatus(connectionSocket, userName):
                     elif str(option) == '3':
                         break #break loop and go back to previous menu options
                 except:
-                    print(ERRMSG)  
+                    print(ERRMSG4)  
         elif option == '3':
             break #break loop and go back to previous menu options
         else:

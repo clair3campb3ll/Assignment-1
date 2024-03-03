@@ -2,18 +2,6 @@ import threading
 import ast
 from socket import *
 
-# Data required for formatting based on protocols
-FORMAT = 'utf-8'
-USERREQ = '<2><USERREQ>'
-UNAVAILSERV = '<0><UNASERV>' ##
-EXSTUSER = '<0>EXSTUSR' ##
-CHANGESTAT = '<2>CNGSTAT' ##
-ESTABCONN = '<1><ESTCONN>'
-SENDEX = '<1><SNDEXIT>'
-CLOSECLIENT = '<1><EXTCLNT>' 
-
-
-
 clientSocket = socket(AF_INET, SOCK_STREAM) #TCP connection
 clientSocket.connect(('127.0.0.1',13000)) #connect client to server
 
@@ -25,35 +13,35 @@ def recieveMsgs():
     global userName
     while True:
         try:
-            message = clientSocket.recv(1024).decode(FORMAT) #while the client is recieving messages from the server
+            message = clientSocket.recv(1024).decode('utf-8') #while the client is recieving messages from the server
 
-            if message[0:12] == USERREQ:  # if the server is requesting the client's name:
-                userName = input('Enter a username:\n')
-                clientSocket.send(userName.encode(FORMAT)) #Send the username
-            elif message[0:12]== CLOSECLIENT:    #  if the client has chosen to diconnect from the server
-                 print("You have left the server. ")
+            if message == "UserName request": #if the server is requesting the client's name:
+                userName = input('Enter a username:')
+                clientSocket.send(userName.encode('utf-8')) #Send the username
+            elif message == "disconnect":#if the client has chosen to diconnect from the server
+                 print("You have left the server")
                  clientSocket.close()
-                 break  # end the loop
-            elif  ESTABCONN in message[0:12]:   # server sends the client the other clients information so they can connect
-                 message = message[12:]
+                 break #end the loop
+            elif  "Establishing connection..." in message: #server sends the client the other clients information so they can connect
                  
                  message = message.replace("Establishing connection...","")
                  theAnd = message.index("&")
-                 ThisPeer = message[:theAnd]    # convert string address back to tuple
+                 ThisPeer = message[:theAnd] #convert string address back to tuple
                  OtherPeer = message[theAnd+1:]
 
-                 ThisPeer = ast.literal_eval((message[:theAnd]))    # convert string address back to tuple
+                 ThisPeer = ast.literal_eval((message[:theAnd])) #convert string address back to tuple
                  OtherPeer = ast.literal_eval((message[theAnd+1:]))
 
                  peer_to_peer(ThisPeer, OtherPeer)
 
             else: 
-                print(message)  # if its not any of the specific questions from the server then print the message
+                print(message) #if its not any of the specifc questions from the server then print the message
 
-        except: #if the server stops running and the client stops recieving messages      
-            print("An error in the server has occured, you have been diconnected. ")
-            clientSocket.close()
-            break
+        except: #if the server stops running and the client stops recieving messages
+                    
+                    print("An error in the server has occured, you have been diconnected.")
+                    clientSocket.close()
+                    break
                     
             
 def sendMsgs():
@@ -69,7 +57,7 @@ def sendMsgs():
                     #print("You have left the server")
                 
                 #else:
-                clientSocket.send(message.encode(FORMAT)) #Send encoded message to another client
+                clientSocket.send(message.encode('utf-8')) #Send encoded message to another client
 
 ##### UDP P2P: #####
 
@@ -86,8 +74,9 @@ def peer_to_peer(ThisPeer, OtherPeer):
     Thread_Sendp2p = threading.Thread(target= Sendp2p, args= (OtherPeer,peerSocket))
     Thread_Sendp2p.start()
 
-    print("(You can type 'exit' to leave the chatroom). ")
-    print("Connection established, press enter to start chat: \n")
+    
+    print("(You can type 'exit' to leave the chatroom)")
+    print("connection established, press enter to start chat:")
 
 def Recievep2p(peerSocket):
     global UDPconnected
@@ -95,10 +84,10 @@ def Recievep2p(peerSocket):
     while True:
         try:
             receiveMsg, oPeer = peerSocket.recvfrom(1024)
-            print(receiveMsg.decode(FORMAT))
+            print(receiveMsg.decode("utf-8"))
 
-            if ("has left the chatroom.") in receiveMsg.decode(FORMAT):
-                clientSocket.send("exit".encode(FORMAT))  # Send the exit message
+            if ("has left the chatroom.") in receiveMsg.decode("utf-8"):
+                clientSocket.send("exit".encode('utf-8'))  # Send the exit message
                 UDPconnected = False
                 break
         except:
@@ -117,12 +106,12 @@ def Sendp2p(OtherPeer,peerSocket):
     while True:
         try:
             message = userName + ": " + input(">> ")
-            peerSocket.sendto(message.encode(FORMAT), OtherPeer)
+            peerSocket.sendto(message.encode('utf-8'), OtherPeer)
 
             if "exit" in message.lower():
                 message = userName + " has left the chatroom."
-                peerSocket.sendto(message.encode(FORMAT), OtherPeer) #tell the other peer the current peer has disconnected from the chatroom
-                clientSocket.send("exit".encode(FORMAT))  # Send the exit message
+                peerSocket.sendto(message.encode('utf-8'), OtherPeer) #tell the other peer the current peer has disconnected from the chatroom
+                clientSocket.send("exit".encode('utf-8'))  # Send the exit message
                 UDPconnected = False
                 break
         except:
@@ -132,6 +121,7 @@ def Sendp2p(OtherPeer,peerSocket):
              
     peerSocket.close()# Close the peer-to-peer socket
     return ""  # Exit the function
+    
 
 ####TCP CLIENT-SERVER THREADING####
 recieveMsgs_Thread = threading.Thread(target= recieveMsgs)
